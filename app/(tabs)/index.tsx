@@ -1,70 +1,109 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import { ScrollView, View, Text, SafeAreaView, TextInput, Touchable, Button } from "react-native";
+import { ListState, useListStore } from "@/store/useStore";
+import { useState } from "react";
+import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+export default function List() {
 
-export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({ ios: 'cmd + d', android: 'cmd + m' })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
-  );
+    const list = useListStore(state => state.list);
+
+    const [newItem, setNewItem] = useState('');
+
+    const addItem = useListStore((state) => state.addItem);
+
+    const handleAddItem = () => {
+        addItem('Produce', newItem);
+        setNewItem('');
+    }
+
+
+
+    return (
+        <SafeAreaView style={{ flex: 1 }}>
+            <View>
+                <TextInput
+                    placeholder="add a new item"
+                    style={{
+                        padding: 10,
+                        margin: 20,
+                        borderStyle: 'solid',
+                        borderColor: 'black',
+                        borderWidth: 1,
+                        borderRadius: 5
+                    }}
+                    value={newItem}
+                    onChangeText={setNewItem}
+                ></TextInput>
+
+                <Button disabled={newItem === ''} onPress={handleAddItem} title="Add Item"></Button>
+            </View>
+            <ScrollView
+                contentContainerStyle={{ flexGrow: 1 }}
+                style={{
+                    flex: 1,
+                    flexDirection: "column",
+                    padding: 20
+                }}
+            >
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                    {list.map((category, i) => (
+                        <View key={i} style={{ marginTop: 20 }}>
+                            <Text style={{ fontSize: 20, display: 'flex', flexDirection: 'column' }}>{category.name}</Text>
+                            <View>
+                                {category.items.map((item, j) => (
+                                    <ShoppingListItem key={j} categoryName={category.name} item={item} />
+                                ))}
+                                {category.items.length === 0 && <Text style={{ color: 'gray', margin: 10 }}>No items</Text>}
+                            </View>
+                        </View>
+
+                    ))}
+                </GestureHandlerRootView>
+
+            </ScrollView>
+        </SafeAreaView>
+    );
 }
 
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
+const ShoppingListItem = ({ categoryName, item }: { categoryName: string; item: { name: string, complete: boolean } }) => {
+    const completeItem = useListStore(state => state.completeItem);
+
+    const handleCompleteItem = () => {
+        console.log('completing item', item.name);
+        completeItem(categoryName, item.name);
+    }
+
+    const cellStyle = { padding: 10, height: 40, borderRadius: 5 }
+    // Left action (mark as complete)
+    const completeAction = () => (
+        <View style={{ ...cellStyle, width: 100, backgroundColor: '#98e092' }}>
+            <Text style={{ textAlign: 'center' }} onPress={handleCompleteItem}>Complete</Text>
+        </View>
+    );
+
+    // Right action (delete item)
+    const deleteAction = () => (
+        <View style={{ ...cellStyle, width: 100, backgroundColor: '#e09392' }}>
+            <Text style={{ textAlign: 'center' }}>Delete</Text>
+        </View>
+    );
+
+    return (
+        <View style={{ marginVertical: 5 }}>
+            <Swipeable
+                renderLeftActions={deleteAction}
+                renderRightActions={completeAction}
+                friction={1}
+                overshootFriction={8}
+                overshootLeft={false}
+                overshootRight={false}
+            >
+                <View style={{ ...cellStyle, backgroundColor: 'white' }}>
+                    <Text>
+                        {item.name}
+                    </Text>
+                </View>
+            </Swipeable>
+        </View>
+    );
+};
