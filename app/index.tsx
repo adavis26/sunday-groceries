@@ -1,16 +1,30 @@
-import { ScrollView, View, Text, SafeAreaView, TextInput, TouchableOpacity } from "react-native";
+import { ScrollView, View, Text, SafeAreaView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from "react-native";
 import { useListStore } from "@/store/useStore";
-import { useState } from "react";
-import { GestureHandlerRootView, } from 'react-native-gesture-handler';
+import { useState, useRef } from "react";
+import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import clsx from 'clsx';
 import { Link, useRouter } from 'expo-router';
 import Button from '@/components/Button';
 
 export default function List() {
     const list = useListStore(state => state.list);
+    const isLoaded = useListStore(state => state.isLoaded);
     const router = useRouter();
 
     const refreshList = useListStore((state) => state.refreshList);
+    const scrollViewRef = useRef<ScrollView>(null);
+
+    const scrollToInput = (y: number) => {
+        scrollViewRef.current?.scrollTo({ y: y - 100, animated: true });
+    };
+
+    if (!isLoaded) {
+        return (
+            <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <Text>Loading...</Text>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={{ flex: 1 }} className="bg-white">
@@ -25,57 +39,98 @@ export default function List() {
                     </Link>
                 </View>
             </View>
-            <ScrollView
-                contentContainerStyle={{ flexGrow: 1 }}
-                style={{
-                    flex: 1,
-                    flexDirection: "column",
-                    padding: 20
-                }}
-            >
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                    {list.map((category, i) => (
-                        <Category key={i} category={category} />
-                    ))}
-                    <View className="mt-6 mb-4">
-                        <Button title="Complete List" onPress={refreshList} color="green" />
-                    </View>
-                </GestureHandlerRootView>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <KeyboardAvoidingView 
+                    style={{ flex: 1 }} 
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+                >
+                    <ScrollView
+                        ref={scrollViewRef}
+                        contentContainerStyle={{ flexGrow: 1 }}
+                        style={{
+                            flex: 1,
+                            flexDirection: "column",
+                            padding: 20
+                        }}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        <GestureHandlerRootView style={{ flex: 1 }}>
+                            {list.map((category, i) => (
+                                <Category key={i} category={category} onInputFocus={scrollToInput} />
+                            ))}
+                            <View className="mt-6 mb-4">
+                                <Button title="Complete List" onPress={refreshList} color="green" />
+                            </View>
+                        </GestureHandlerRootView>
 
-            </ScrollView>
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            </TouchableWithoutFeedback>
         </SafeAreaView>
     );
 }
 
 const ShoppingListItem = ({ categoryName, item, toggleComplete }: { categoryName: string; item: { name: string, complete: boolean }; toggleComplete: (name: string) => void }) => {
     const completeItem = useListStore(state => state.completeItem);
-    const itemComplete = useListStore(state => state.list.find(category => category.name === categoryName)?.items.find(i => i.name === item.name)?.complete);
+    const removeItem = useListStore(state => state.removeItem);
 
     const handleToggleComplete = (name: string) => {
         completeItem(categoryName, name);
-    }
+    };
+
+    const handleDelete = () => {
+        removeItem(categoryName, item.name);
+    };
+
+    const renderRightActions = () => (
+        <TouchableOpacity 
+            onPress={handleDelete}
+            style={{
+                backgroundColor: '#dc3545',
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: 80,
+                borderRadius: 8,
+                marginVertical: 4
+            }}
+        >
+            <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Delete</Text>
+        </TouchableOpacity>
+    );
 
     return (
-        <View>
+        <Swipeable renderRightActions={renderRightActions}>
             <View className="p-3">
                 <TouchableOpacity onPress={() => handleToggleComplete(item.name)} className="flex-row gap-3">
-                    <View className={clsx("h-5 w-5 rounded-full", itemComplete ? 'bg-green-400' : 'border')}></View>
-                    <Text className={clsx(itemComplete ? 'line-through' : '')}>{item.name}</Text>
+                    <View className={clsx("h-5 w-5 rounded-full", item.complete ? 'bg-green-400' : 'border')}></View>
+                    <Text className={clsx(item.complete ? 'line-through' : '')}>{item.name}</Text>
                 </TouchableOpacity>
             </View>
-        </View>
+        </Swipeable>
     );
 };
 
-const Category = ({ category }: { category: { name: string; items: { name: string; complete: boolean; }[] } }) => {
+const Category = ({ category, onInputFocus }: { category: { name: string; items: { name: string; complete: boolean; }[] }; onInputFocus: (y: number) => void }) => {
     const [newItem, setNewItem] = useState('');
     const addItem = useListStore((state) => state.addItem);
+    const inputRef = useRef<TextInput>(null);
 
     const handleAddItem = () => {
         if (newItem.trim()) {
-            addItem(category.name, newItem.trim());
+            // Split on newlines and add each line as a separate item
+            const items = newItem.split('\n').map(item => item.trim().replace(/^\W+/, '')).filter(item => item.length > 0);
+            items.forEach(item => {
+                addItem(category.name, item);
+            });
             setNewItem('');
         }
+    };
+
+    const handleInputFocus = () => {
+        inputRef.current?.measure((x, y, width, height, pageX, pageY) => {
+            onInputFocus(pageY);
+        });
     };
 
     return (
@@ -91,12 +146,38 @@ const Category = ({ category }: { category: { name: string; items: { name: strin
 
                         </View>
                         <TextInput
+                            ref={inputRef}
                             placeholder="Add item..."
                             className="flex-1 text-base"
+                            style={{
+                                minHeight: 40,
+                                paddingVertical: 8,
+                                paddingHorizontal: 12,
+                                borderWidth: 1,
+                                borderColor: '#e9ecef',
+                                borderRadius: 8,
+                                backgroundColor: '#f8f9fa'
+                            }}
                             value={newItem}
                             onChangeText={setNewItem}
                             onSubmitEditing={handleAddItem}
+                            onFocus={handleInputFocus}
+                            multiline={true}
+                            blurOnSubmit={false}
                         />
+                        <TouchableOpacity 
+                            onPress={handleAddItem}
+                            style={{
+                                paddingHorizontal: 12,
+                                paddingVertical: 8,
+                                backgroundColor: '#007bff',
+                                borderRadius: 8,
+                                justifyContent: 'center',
+                                alignItems: 'center'
+                            }}
+                        >
+                            <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Add</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </View>

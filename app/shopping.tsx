@@ -1,6 +1,6 @@
 import { useListStore } from "@/store/useStore";
 import { useState, useRef, useEffect } from "react";
-import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Modal } from "react-native";
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, Modal, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter } from 'expo-router';
 import Button from '@/components/Button';
 
@@ -66,47 +66,53 @@ export default function Shopping() {
             <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#000000' }}>Shopping</Text>
                         <Text style={{ fontSize: 20, marginTop: 5, color: '#000000' }}>{incomplete} items left</Text>
         </View>
-        <ScrollView style={{ flex: 1 }}>
-            {list.map((category, i) => {
-                const isEmpty = category.items.length === 0;
-                const isComplete = category.items.length > 0 && category.items.every(item => item.complete);
-                const isExpanded = expandedCategories.has(category.name) || (!isComplete && !isEmpty);
-                
-                return (
-                    <TouchableOpacity 
-                        key={category.name} 
-                        onPress={() => handleCategoryPress(category.name, isComplete)}
-                        activeOpacity={isComplete ? 0.7 : 1}
-                        style={{ 
-                            backgroundColor: '#ffffff', 
-                            margin: 10, 
-                            borderRadius: 10, 
-                            padding: isEmpty ? 15 : 20, 
-                            borderWidth: 1, 
-                            borderColor: isEmpty ? '#e9ecef' : '#000000',
-                            opacity: isEmpty ? 0.6 : 1
-                        }}
-                    >
-                        <Text style={{ 
-                            fontSize: isEmpty ? 18 : 24, 
-                            fontWeight: 'bold', 
-                            marginBottom: 10,
-                            color: isEmpty ? '#6c757d' : colorThemes[category.name].text 
-                        }}>
-                            {category.name} {isEmpty ? '(0)' : isComplete ? '✅' : `(${category.items.filter(item => !item.complete).length})`}
-                        </Text>
-                        {isExpanded && (
-                            <>
-                                {category.items.map((item, j) => (
-                                    <ShoppingItem key={j} categoryName={category.name} item={item} />
-                                ))}
-                                {isEmpty && <Text style={{ fontSize: 16, color: '#adb5bd', fontStyle: 'italic', textAlign: 'center', margin: 10 }}>No items in this category</Text>}
-                            </>
-                        )}
-                    </TouchableOpacity>
-                );
-            })}
-        </ScrollView>
+        <KeyboardAvoidingView 
+            style={{ flex: 1 }} 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+        >
+            <ScrollView style={{ flex: 1 }}>
+                {list.map((category, i) => {
+                    const isEmpty = category.items.length === 0;
+                    const isComplete = category.items.length > 0 && category.items.every(item => item.complete);
+                    const isExpanded = expandedCategories.has(category.name) || (!isComplete && !isEmpty);
+                    
+                    return (
+                        <TouchableOpacity 
+                            key={category.name} 
+                            onPress={() => handleCategoryPress(category.name, isComplete)}
+                            activeOpacity={isComplete ? 0.7 : 1}
+                            style={{ 
+                                backgroundColor: '#ffffff', 
+                                margin: 10, 
+                                borderRadius: 10, 
+                                padding: isEmpty ? 15 : 20, 
+                                borderWidth: 1, 
+                                borderColor: isEmpty ? '#e9ecef' : '#000000',
+                                opacity: isEmpty ? 0.6 : 1
+                            }}
+                        >
+                            <Text style={{ 
+                                fontSize: isEmpty ? 18 : 24, 
+                                fontWeight: 'bold', 
+                                marginBottom: 10,
+                                color: isEmpty ? '#6c757d' : colorThemes[category.name].text 
+                            }}>
+                                {category.name} {isEmpty ? '(0)' : isComplete ? '✅' : `(${category.items.filter(item => !item.complete).length})`}
+                            </Text>
+                            {isExpanded && (
+                                <>
+                                    {category.items.map((item, j) => (
+                                        <ShoppingItem key={j} categoryName={category.name} item={item} />
+                                    ))}
+                                    {isEmpty && <Text style={{ fontSize: 16, color: '#adb5bd', fontStyle: 'italic', textAlign: 'center', margin: 10 }}>No items in this category</Text>}
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    );
+                })}
+            </ScrollView>
+        </KeyboardAvoidingView>
         <View style={{ padding: 20 }}>
             <Button title="Back to List" onPress={() => router.back()} color="blue" />
         </View>
